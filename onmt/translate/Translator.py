@@ -156,8 +156,8 @@ class Translator(object):
 
         # ADDED --------------------------------------------------------------
         # Load the translation pieces list
-        home_path = "/home/pmlf/Documents/github/"
-        tp_path = home_path + "OpenNMT/extra_data/translation_pieces_5.pickle"
+        home_path = "/home/pmlf/Documents/github/OpenNMT-py-fork/"
+        tp_path = home_path + "extra_data/translation_pieces_10.pickle"
         translation_pieces = pickle.load(open(tp_path, 'rb'))
         # --------------------------------------------------------------------
 
@@ -357,7 +357,7 @@ class Translator(object):
 
                 # ADDED ----------------------------------------------------
                 # Add the weights of the 1-grams
-                out = np.add(out, 1.5*out_uni_rep)
+                out = np.add(out, 1.0*out_uni_rep)
                 # END ------------------------------------------------------
 
                 out = unbottle(out)
