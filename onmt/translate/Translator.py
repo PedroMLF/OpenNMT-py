@@ -12,11 +12,13 @@ import onmt.translate.Beam
 import onmt.io
 import onmt.opts
 
-# ADDED
+# ADDED -------------------------------
 import pdb
 import pickle
 from collections import defaultdict
 import numpy as np
+import time
+# END ---------------------------------
 
 def make_translator(opt, report_score=True, out_file=None):
     if out_file is None:
@@ -156,10 +158,12 @@ class Translator(object):
 
         # ADDED --------------------------------------------------------------
         # Load the translation pieces list
-        home_path = "/home/ubuntu/OpenNMT-py-fork/"
+        home_path = "/home/pmlf/Documents/github/OpenNMT-py-fork/"
+        #home_path = "/home/ubuntu/OpenNMT-py-fork/"
         tp_path = home_path + "extra_data/translation_pieces_10.pickle"
         translation_pieces = pickle.load(open(tp_path, 'rb'))
-        # --------------------------------------------------------------------
+        tot_time = 0
+        # END ----------------------------------------------------------------
 
         # Statistics
         counter = count(1)
@@ -167,7 +171,10 @@ class Translator(object):
         gold_score_total, gold_words_total = 0, 0
 
         all_scores = []
-        for batch in data_iter:
+        for ix, batch in enumerate(data_iter):
+            # ADDED --------------------------------------------------------------
+            start_time = time.time()
+            # END ----------------------------------------------------------------
             batch_data = self.translate_batch(batch, data, translation_pieces)
             translations = builder.from_batch(batch_data)
 
@@ -207,6 +214,15 @@ class Translator(object):
                         output += row_format.format(word, *row) + '\n'
                         row_format = "{:>10.10} " + "{:>10.7f} " * len(srcs)
                     os.write(1, output.encode('utf-8'))
+
+            # ADDED --------------------------------------------------------------
+            duration = time.time()-start_time
+            tot_time += duration
+            tot_time_print = str(time.strftime("%H:%M:%S", time.gmtime(tot_time)))
+            print("Batch {} - Duration: {:.2f} - Total: {}".format(ix,
+                                                        duration,
+                                                        tot_time_print))
+            # END ----------------------------------------------------------------
 
         if self.report_score:
             self._report_score('PRED', pred_score_total, pred_words_total)
@@ -252,7 +268,7 @@ class Translator(object):
         # "Translate" the list into dictionaries indexed by word index
         tp_uni = list()
         tp_multi = list()
-        out_uni = np.zeros((30, len(vocab)))
+        out_uni = np.zeros((batch.batch_size, len(vocab)))
 
         for ix, list_ in enumerate(t_pieces):
             aux_dict_uni = defaultdict(lambda: 0)
@@ -272,7 +288,6 @@ class Translator(object):
         tp_uni_rep = np.repeat(tp_uni, beam_size)
         tp_multi_rep = np.repeat(tp_multi, beam_size)
         out_uni_rep = np.repeat(out_uni, beam_size, axis=0)
-
         # END ------------------------------------------------------
 
         # Define a list of tokens to exclude from ngram-blocking
@@ -356,8 +371,30 @@ class Translator(object):
                 out = self.model.generator.forward(dec_out).data
 
                 # ADDED ----------------------------------------------------
+                # Deal with n-gram cases
+                #start_time = time.time()
+                """ out_multi = np.zeros((batch.batch_size, len(vocab)))
+                    
+                if i > 1:
+                    for j in range(len(beam)):
+                        for seq in zip(*beam[j].next_ys):
+                            for n in range(2, 5):
+                                for s in range(0, len(seq)-n+1):
+                                    list_seq = [str(x.item()) for x in seq[s:s+n]]
+                                    query = " ".join(list_seq)
+                                    if query not in tp_multi[j]:
+                                        continue
+                                    value = tp_multi[j][query]
+                                    for k in list_seq:
+                                        out_multi[j][int(k)] += value """
+                
+                #out_multi_rep = np.repeat(out_multi, beam_size, axis=0)
+                #print("time: ", time.time()-start_time)
+
                 # Add the weights of the 1-grams
-                out = np.add(out, 1.0*out_uni_rep)
+                weight = 1.0
+                out = np.add(out, weight*out_uni_rep)
+                #out = np.add(out, weight*out_multi_rep)
                 # END ------------------------------------------------------
 
                 out = unbottle(out)
