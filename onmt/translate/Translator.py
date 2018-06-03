@@ -156,7 +156,7 @@ class Translator(object):
 
         # ADDED --------------------------------------------------------------
         # Load the translation pieces list
-        home_path = "/home/pmlf/Documents/github/OpenNMT-py-fork/"
+        home_path = "/home/ubuntu/OpenNMT-py-fork/"
         tp_path = home_path + "extra_data/translation_pieces_10.pickle"
         translation_pieces = pickle.load(open(tp_path, 'rb'))
         # --------------------------------------------------------------------
