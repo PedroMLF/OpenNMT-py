@@ -12,6 +12,11 @@ import onmt.translate.Beam
 import onmt.io
 import onmt.opts
 
+# ADDED
+import pdb
+import pickle
+from collections import defaultdict
+import numpy as np
 
 def make_translator(opt, report_score=True, out_file=None):
     if out_file is None:
@@ -149,6 +154,13 @@ class Translator(object):
             data, self.fields,
             self.n_best, self.replace_unk, tgt_path)
 
+        # ADDED --------------------------------------------------------------
+        # Load the translation pieces list
+        home_path = "/home/pmlf/Documents/github/"
+        tp_path = home_path + "OpenNMT/extra_data/translation_pieces_5.pickle"
+        translation_pieces = pickle.load(open(tp_path, 'rb'))
+        # --------------------------------------------------------------------
+
         # Statistics
         counter = count(1)
         pred_score_total, pred_words_total = 0, 0
@@ -156,7 +168,7 @@ class Translator(object):
 
         all_scores = []
         for batch in data_iter:
-            batch_data = self.translate_batch(batch, data)
+            batch_data = self.translate_batch(batch, data, translation_pieces)
             translations = builder.from_batch(batch_data)
 
             for trans in translations:
@@ -211,7 +223,7 @@ class Translator(object):
                       codecs.open(self.dump_beam, 'w', 'utf-8'))
         return all_scores
 
-    def translate_batch(self, batch, data):
+    def translate_batch(self, batch, data, translation_pieces):
         """
         Translate a batch of sentences.
 
@@ -232,6 +244,36 @@ class Translator(object):
         batch_size = batch.batch_size
         data_type = data.data_type
         vocab = self.fields["tgt"].vocab
+
+        # ADDED ----------------------------------------------------
+        # List that will have the necessary translation pieces
+        t_pieces = [translation_pieces[ix] for ix in batch.indices]
+
+        # "Translate" the list into dictionaries indexed by word index
+        tp_uni = list()
+        tp_multi = list()
+        out_uni = np.zeros((30, len(vocab)))
+
+        for ix, list_ in enumerate(t_pieces):
+            aux_dict_uni = defaultdict(lambda: 0)
+            aux_dict_multi = defaultdict(lambda: 0)
+            for tuple_ in list_:
+                key = str(vocab.stoi[tuple_[0][0]])
+                if len(tuple_[0]) == 1:
+                    aux_dict_uni[key] = tuple_[1]
+                    out_uni[ix][int(key)] = tuple_[1]
+                else:
+                    for word in tuple_[0][1:]:
+                        key += " " + str(vocab.stoi[word])
+                    aux_dict_multi[key] = tuple_[1]
+            tp_uni.append(aux_dict_uni)
+            tp_multi.append(aux_dict_multi)
+
+        tp_uni_rep = np.repeat(tp_uni, beam_size)
+        tp_multi_rep = np.repeat(tp_multi, beam_size)
+        out_uni_rep = np.repeat(out_uni, beam_size, axis=0)
+
+        # END ------------------------------------------------------
 
         # Define a list of tokens to exclude from ngram-blocking
         # exclusion_list = ["<t>", "</t>", "."]
@@ -312,6 +354,12 @@ class Translator(object):
             # (b) Compute a vector of batch x beam word scores.
             if not self.copy_attn:
                 out = self.model.generator.forward(dec_out).data
+
+                # ADDED ----------------------------------------------------
+                # Add the weights of the 1-grams
+                out = np.add(out, 1.5*out_uni_rep)
+                # END ------------------------------------------------------
+
                 out = unbottle(out)
                 # beam x tgt_vocab
                 beam_attn = unbottle(attn["std"])
