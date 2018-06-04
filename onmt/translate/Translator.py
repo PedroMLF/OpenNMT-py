@@ -158,8 +158,8 @@ class Translator(object):
 
         # ADDED --------------------------------------------------------------
         # Load the translation pieces list
-        home_path = "/home/pmlf/Documents/github/OpenNMT-py-fork/"
-        #home_path = "/home/ubuntu/OpenNMT-py-fork/"
+        #home_path = "/home/pmlf/Documents/github/OpenNMT-py-fork/"
+        home_path = "/home/ubuntu/OpenNMT-py-fork/"
         tp_path = home_path + "extra_data/translation_pieces_10.pickle"
         translation_pieces = pickle.load(open(tp_path, 'rb'))
         tot_time = 0
@@ -373,7 +373,7 @@ class Translator(object):
                 # ADDED ----------------------------------------------------
                 # Deal with n-gram cases
                 #start_time = time.time()
-                """ out_multi = np.zeros((batch.batch_size, len(vocab)))
+                out_multi = np.zeros((batch.batch_size, len(vocab)))
                     
                 if i > 1:
                     for j in range(len(beam)):
@@ -386,15 +386,15 @@ class Translator(object):
                                         continue
                                     value = tp_multi[j][query]
                                     for k in list_seq:
-                                        out_multi[j][int(k)] += value """
+                                        out_multi[j][int(k)] += value
                 
-                #out_multi_rep = np.repeat(out_multi, beam_size, axis=0)
+                out_multi_rep = np.repeat(out_multi, beam_size, axis=0)
                 #print("time: ", time.time()-start_time)
 
                 # Add the weights of the 1-grams
                 weight = 1.0
                 out = np.add(out, weight*out_uni_rep)
-                #out = np.add(out, weight*out_multi_rep)
+                out = np.add(out, weight*out_multi_rep)
                 # END ------------------------------------------------------
 
                 out = unbottle(out)
