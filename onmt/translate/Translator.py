@@ -372,11 +372,13 @@ class Translator(object):
 
                 # ADDED ----------------------------------------------------
                 # Deal with n-gram cases
-                out_multi = np.zeros((batch.batch_size, len(vocab)))
-                    
+                #out_multi = np.zeros((batch.batch_size, len(vocab)))
+                total_size = batch.batch_size * self.beam_size
+                out_multi = np.zeros((total_size, len(vocab)))
+
                 if i > 1:
                     for j in range(len(beam)):
-                        for seq in zip(*beam[j].next_ys):
+                        for k, seq in enumerate(zip(*beam[j].next_ys)):
                             for n in range(2, 5):
                                 for s in range(0, len(seq)-n+1):
                                     list_seq = [str(x.item()) for x in seq[s:s+n]]
@@ -384,15 +386,15 @@ class Translator(object):
                                     if query not in tp_multi[j]:
                                         continue
                                     value = tp_multi[j][query]
-                                    for k in list_seq:
-                                        out_multi[j][int(k)] += value
+                                    for w in list_seq:
+                                        out_multi[j*10 + k][int(w)] += value
                 
-                out_multi_rep = np.repeat(out_multi, beam_size, axis=0)
+                #out_multi_rep = np.repeat(out_multi, beam_size, axis=0)
 
                 # Add the weights of the 1-grams
                 weight = 1.0
                 out = np.add(out, weight*out_uni_rep)
-                out = np.add(out, weight*out_multi_rep)
+                out = np.add(out, weight*out_multi)
                 # END ------------------------------------------------------
 
                 out = unbottle(out)
