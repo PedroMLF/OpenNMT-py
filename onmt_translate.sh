@@ -6,7 +6,7 @@ DATA=extra_data
 
 # Specific things to translation
 MODEL_NAME=preprocessed_softmax_cattn-0_acc_43.02_ppl_69.09_e9.pt
-SRC_FILE=newstest2016.bpe.sink.de
+SRC_FILE=test.de
 
 # Call the OpenNMT-py script
 python3 translate.py \
@@ -19,9 +19,10 @@ python3 translate.py \
 # Copy the predictions to the right folders
 #HOME_PATH=/home/pmlf/Documents/github/NMT-Code/attention_comparison/thesis/guided_nmt
 HOME_PATH=/home/ubuntu/NMT-Code/attention_comparison/thesis/guided_nmt
-PRED_PATH=${HOME_PATH}/generate_results_de_en/preds
-MT_PATH=${HOME_PATH}/generate_results_de_en/mt_predictions
+PRED_PATH=${HOME_PATH}/generate_results_de_en_domain/preds
+MT_PATH=${HOME_PATH}/generate_results_de_en_domain/mt_predictions
 
-cp ${DATA}/${SRC_FILE}.pred ${PRED_PATH}/
-sed -r 's/(@@ )|(@@ ?$)//g' ${PRED_PATH}/${SRC_FILE}.pred > \
-	                                     ${MT_PATH}/${SRC_FILE}.pred.merged
+POS=guided_10-th0pt5-w2
+cp ${DATA}/${SRC_FILE}.pred ${PRED_PATH}/${SRC_FILE}.pred.${POS}
+sed -r 's/(@@ )|(@@ ?$)//g' ${PRED_PATH}/${SRC_FILE}.pred.${POS} > \
+	                                     ${MT_PATH}/${SRC_FILE}.pred.${POS}.merged
