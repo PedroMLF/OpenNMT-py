@@ -286,7 +286,7 @@ class Translator(object):
         vocab = self.fields["tgt"].vocab
 
         # ADDED ----------------------------------------------------
-        guided=False
+        guided=True
         if guided:
             # List that will have the necessary translation pieces
             t_pieces = [translation_pieces[ix] for ix in batch.indices]
@@ -419,8 +419,8 @@ class Translator(object):
                     #out_multi_rep = np.repeat(out_multi, beam_size, axis=0)
 
                     # Add the weights of the 1-grams
-                    weight = 2.0
-                    out = np.add(out, weight*out_uni_rep)
+                    weight = 0.1
+                    #out = np.add(out, weight*out_uni_rep)
                     out = np.add(out, weight*out_multi)
                 # END ------------------------------------------------------
 

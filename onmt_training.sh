@@ -2,7 +2,7 @@ SOURCE=de
 TARGET=en
 LANGPAIR=${SOURCE}-${TARGET}
 DATA=/mnt/data/${LANGPAIR}-md
-ONMT=/home/ubuntu/OpenNMT-py-dict
+ONMT=/home/ubuntu/OpenNMT-py-fork
 MODEL_FOLDER=base
 MODEL_NAME=${LANGPAIR}-md-base
 
