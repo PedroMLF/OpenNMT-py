@@ -23,7 +23,7 @@ PRED_PATH=${HOME_PATH}/generate_results_de_en_domain/preds
 MT_PATH=${HOME_PATH}/generate_results_de_en_domain/mt_predictions
 
 #guided_10-th0pt5
-POS=guided_10-th0pt5-234g-true-w0pt1
+POS=guided_10-th0pt5-true-corrected
 cp ${DATA}/${SRC_FILE}.pred ${PRED_PATH}/${SRC_FILE}.pred.${POS}
 sed -r 's/(@@ )|(@@ ?$)//g' ${PRED_PATH}/${SRC_FILE}.pred.${POS} > \
 	                                     ${MT_PATH}/${SRC_FILE}.pred.${POS}.merged

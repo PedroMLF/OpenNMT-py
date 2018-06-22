@@ -289,7 +289,8 @@ class Translator(object):
         guided=True
         if guided:
             # List that will have the necessary translation pieces
-            t_pieces = [translation_pieces[ix] for ix in batch.indices]
+            ixs_sorted = torch.sort(batch.indices)[0]
+            t_pieces = [translation_pieces[ix] for ix in ixs_sorted]
 
             # "Translate" the list into dictionaries indexed by word index
             tp_uni = list()
@@ -399,7 +400,6 @@ class Translator(object):
                 # ADDED ----------------------------------------------------
                 if guided:
                     # Deal with n-gram cases
-                    #out_multi = np.zeros((batch.batch_size, len(vocab)))
                     total_size = batch.batch_size * self.beam_size
                     out_multi = np.zeros((total_size, len(vocab)))
 
@@ -416,11 +416,10 @@ class Translator(object):
                                         for w in list_seq:
                                             out_multi[j*10 + k][int(w)] += value
                     
-                    #out_multi_rep = np.repeat(out_multi, beam_size, axis=0)
 
                     # Add the weights of the 1-grams
-                    weight = 0.1
-                    #out = np.add(out, weight*out_uni_rep)
+                    weight = 1.0
+                    out = np.add(out, weight*out_uni_rep)
                     out = np.add(out, weight*out_multi)
                 # END ------------------------------------------------------
 
