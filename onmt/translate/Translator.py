@@ -17,6 +17,7 @@ import pickle
 from collections import defaultdict
 import numpy as np
 import time
+import itertools
 # END ---------------------------------
 
 def make_translator(opt, report_score=True, logger=None, out_file=None):
@@ -277,7 +278,6 @@ class Translator(object):
         Todo:
            Shouldn't need the original dataset.
         """
-
         # (0) Prep each of the components of the search.
         # And helper method for reducing verbosity.
         beam_size = self.beam_size
@@ -289,32 +289,47 @@ class Translator(object):
         guided=True
         if guided:
             # List that will have the necessary translation pieces
-            ixs_sorted = torch.sort(batch.indices)[0]
-            t_pieces = [translation_pieces[ix] for ix in ixs_sorted]
+            #ixs_sorted = torch.sort(batch.indices)[0]
+            t_pieces = [translation_pieces[ix] for ix in batch.indices]
 
             # "Translate" the list into dictionaries indexed by word index
-            tp_uni = list()
+#            tp_uni = list()
             tp_multi = list()
             out_uni = np.zeros((batch.batch_size, len(vocab)))
 
             for ix, list_ in enumerate(t_pieces):
-                aux_dict_uni = defaultdict(lambda: 0)
+#                aux_dict_uni = defaultdict(lambda: 0)
                 aux_dict_multi = defaultdict(lambda: 0)
                 for tuple_ in list_:
                     key = str(vocab.stoi[tuple_[0][0]])
                     if len(tuple_[0]) == 1:
-                        aux_dict_uni[key] = tuple_[1]
+ #                       aux_dict_uni[key] = tuple_[1]
                         out_uni[ix][int(key)] = tuple_[1]
                     else:
                         for word in tuple_[0][1:]:
                             key += " " + str(vocab.stoi[word])
                         aux_dict_multi[key] = tuple_[1]
-                tp_uni.append(aux_dict_uni)
+#                tp_uni.append(aux_dict_uni)
                 tp_multi.append(aux_dict_multi)
 
-            tp_uni_rep = np.repeat(tp_uni, beam_size)
-            tp_multi_rep = np.repeat(tp_multi, beam_size)
-            out_uni_rep = np.repeat(out_uni, beam_size, axis=0)
+            #tp_uni_rep = np.repeat(tp_uni, beam_size)
+            #tp_multi_rep = np.repeat(tp_multi, beam_size)
+            #out_uni_rep = np.repeat(out_uni, beam_size, axis=0)
+            
+            # To repeat we have to make [1,2,3,1,2,3,...] because
+            # in each beam we have batch_size translations, so we
+            # want to add all the translation pieces once in each
+            # beam. Therefore, we repeat them beam_size times and
+            # then we flatten that list to get something of dimen
+            # sion equal to beam_size * batch_size            
+            #tp_uni_ = [tp_uni for _ in range(self.beam_size)]
+            #tp_uni_rep = list(itertools.chain(*tp_uni_))
+            #tp_multi_ = [tp_multi for _ in range(self.beam_size)]
+            #tp_multi_rep = list(itertools.chain(*tp_multi_))
+            
+            out_uni_ = tuple([out_uni for _ in range(self.beam_size)])
+            out_uni_rep = np.vstack(out_uni_)            
+
         # END ------------------------------------------------------
 
         # Define a list of tokens to exclude from ngram-blocking
@@ -400,11 +415,14 @@ class Translator(object):
                 # ADDED ----------------------------------------------------
                 if guided:
                     # Deal with n-gram cases
+                    bs = batch.batch_size
                     total_size = batch.batch_size * self.beam_size
                     out_multi = np.zeros((total_size, len(vocab)))
 
                     if i > 1:
+                        # len(beam) is batch_size
                         for j in range(len(beam)):
+                            # Go through beam_size sequences
                             for k, seq in enumerate(zip(*beam[j].next_ys)):
                                 for n in range(2, 5):
                                     for s in range(0, len(seq)-n+1):
@@ -414,8 +432,7 @@ class Translator(object):
                                             continue
                                         value = tp_multi[j][query]
                                         for w in list_seq:
-                                            out_multi[j*10 + k][int(w)] += value
-                    
+                                            out_multi[k*bs+j][int(w)] += value
 
                     # Add the weights of the 1-grams
                     weight = 1.0
