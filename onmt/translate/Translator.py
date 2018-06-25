@@ -312,10 +312,6 @@ class Translator(object):
 #                tp_uni.append(aux_dict_uni)
                 tp_multi.append(aux_dict_multi)
 
-            #tp_uni_rep = np.repeat(tp_uni, beam_size)
-            #tp_multi_rep = np.repeat(tp_multi, beam_size)
-            #out_uni_rep = np.repeat(out_uni, beam_size, axis=0)
-            
             # To repeat we have to make [1,2,3,1,2,3,...] because
             # in each beam we have batch_size translations, so we
             # want to add all the translation pieces once in each
@@ -418,7 +414,7 @@ class Translator(object):
                     bs = batch.batch_size
                     total_size = batch.batch_size * self.beam_size
                     out_multi = np.zeros((total_size, len(vocab)))
-
+                    
                     if i > 1:
                         # len(beam) is batch_size
                         for j in range(len(beam)):
@@ -426,13 +422,22 @@ class Translator(object):
                             for k, seq in enumerate(zip(*beam[j].next_ys)):
                                 for n in range(2, 5):
                                     for s in range(0, len(seq)-n+1):
+                                        if s+n > len(seq):
+                                            break
+                                        # Get the context
                                         list_seq = [str(x.item()) for x in seq[s:s+n]]
                                         query = " ".join(list_seq)
                                         if query not in tp_multi[j]:
                                             continue
-                                        value = tp_multi[j][query]
-                                        for w in list_seq:
-                                            out_multi[k*bs+j][int(w)] += value
+                                        # If the context exists in the multi-dict
+                                        for key in tp_multi[j]:
+                                            key_ = key.split()
+                                            if len(key_) < len(list_seq): 
+                                                continue
+                                            if list_seq == key_[0:len(key_)]:
+                                                value = tp_multi[j][query]
+                                                for w in list_seq[len(key_):]:
+                                                    out_multi[k*bs+j][int(w)] += value
 
                     # Add the weights of the 1-grams
                     weight = 1.0

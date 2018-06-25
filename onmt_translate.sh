@@ -16,7 +16,6 @@ python3 translate.py \
 		-output ${DATA}/${SRC_FILE}.pred \
 		-beam_size 10 \
         -replace_unk \
-        -verbose \
         -log_file "extra_data/log"
 
 # Copy the predictions to the right folders
