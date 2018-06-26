@@ -1,5 +1,9 @@
+#!/usr/bin/env python
+""" Implementation of all available options """
+from __future__ import print_function
+
 import argparse
-from onmt.modules.SRU import CheckSRU
+from onmt.models.SRU import CheckSRU
 
 
 def model_opts(parser):
@@ -89,9 +93,6 @@ def model_opts(parser):
 
     group.add_argument('-brnn', action=DeprecateAction,
                        help="Deprecated, use `encoder_type`.")
-    group.add_argument('-brnn_merge', default='concat',
-                       choices=['concat', 'sum'],
-                       help="Merge action for the bidir hidden states")
 
     group.add_argument('-context_gate', type=str, default=None,
                        choices=['source', 'target', 'both'],
@@ -121,6 +122,7 @@ def model_opts(parser):
 
 
 def preprocess_opts(parser):
+    """ Pre-procesing options """
     # Data options
     group = parser.add_argument_group('Data')
     group.add_argument('-data_type', default="text",
@@ -195,6 +197,8 @@ def preprocess_opts(parser):
     group = parser.add_argument_group('Logging')
     group.add_argument('-report_every', type=int, default=100000,
                        help="Report status every this many sentences")
+    group.add_argument('-log_file', type=str, default="",
+                       help="Output logs to a file under this path.")
 
     # Options most relevant to speech
     group = parser.add_argument_group('Speech')
@@ -209,7 +213,7 @@ def preprocess_opts(parser):
 
 
 def train_opts(parser):
-    # Model loading/saving options
+    """ Training and saving options """
 
     group = parser.add_argument_group('General')
     group.add_argument('-data', required=True,
@@ -352,6 +356,8 @@ def train_opts(parser):
     group = parser.add_argument_group('Logging')
     group.add_argument('-report_every', type=int, default=50,
                        help="Print stats at this interval.")
+    group.add_argument('-log_file', type=str, default="",
+                       help="Output logs to a file under this path.")
     group.add_argument('-exp_host', type=str, default="",
                        help="Send logs to this crayon server.")
     group.add_argument('-exp', type=str, default="",
@@ -375,6 +381,7 @@ def train_opts(parser):
 
 
 def translate_opts(parser):
+    """ Translation / inference options """
     group = parser.add_argument_group('Model')
     group.add_argument('-model', required=True,
                        help='Path to model .pt file')
@@ -383,10 +390,10 @@ def translate_opts(parser):
     group.add_argument('-data_type', default="text",
                        help="Type of the source input. Options: [text|img].")
 
-    group.add_argument('-src',   required=True,
+    group.add_argument('-src', required=True,
                        help="""Source sequence to decode (one line per
                        sequence)""")
-    group.add_argument('-src_dir',   default="",
+    group.add_argument('-src_dir', default="",
                        help='Source directory for image or audio files')
     group.add_argument('-tgt',
                        help='True target sequence (optional)')
@@ -407,7 +414,7 @@ def translate_opts(parser):
                        help="Share source and target vocabulary")
 
     group = parser.add_argument_group('Beam')
-    group.add_argument('-beam_size',  type=int, default=5,
+    group.add_argument('-beam_size', type=int, default=5,
                        help='Beam size')
     group.add_argument('-min_length', type=int, default=0,
                        help='Minimum prediction length')
@@ -450,6 +457,8 @@ def translate_opts(parser):
     group = parser.add_argument_group('Logging')
     group.add_argument('-verbose', action="store_true",
                        help='Print scores and predictions for each sentence')
+    group.add_argument('-log_file', type=str, default="",
+                       help="Output logs to a file under this path.")
     group.add_argument('-attn_debug', action="store_true",
                        help='Print best attn for each word')
     group.add_argument('-dump_beam', type=str, default="",
@@ -477,6 +486,7 @@ def translate_opts(parser):
 
 
 def add_md_help_argument(parser):
+    """ md help parser """
     parser.add_argument('-md', action=MarkdownHelpAction,
                         help='print Markdown-formatted help text and exit.')
 
@@ -524,6 +534,8 @@ class MarkdownHelpFormatter(argparse.HelpFormatter):
 
 
 class MarkdownHelpAction(argparse.Action):
+    """ MD help action """
+
     def __init__(self, option_strings,
                  dest=argparse.SUPPRESS, default=argparse.SUPPRESS,
                  **kwargs):
@@ -541,11 +553,13 @@ class MarkdownHelpAction(argparse.Action):
 
 
 class DeprecateAction(argparse.Action):
+    """ Deprecate action """
+
     def __init__(self, option_strings, dest, help=None, **kwargs):
         super(DeprecateAction, self).__init__(option_strings, dest, nargs=0,
                                               help=help, **kwargs)
 
     def __call__(self, parser, namespace, values, flag_name):
-        help = self.help if self.help is not None else ""
+        help = self.help if self.mdhelp is not None else ""
         msg = "Flag '%s' is deprecated. %s" % (flag_name, help)
         raise argparse.ArgumentTypeError(msg)
