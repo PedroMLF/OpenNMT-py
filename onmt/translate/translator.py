@@ -20,6 +20,7 @@ import pickle
 from collections import defaultdict
 import numpy as np
 import time
+import itertools
 # END ---------------------------------
 
 def build_translator(opt, report_score=True, logger=None, out_file=None):
@@ -180,7 +181,7 @@ class Translator(object):
         # Load the translation pieces list
         #home_path = "/home/pmlf/Documents/github/OpenNMT-py-fork/"
         home_path = "/home/ubuntu/OpenNMT-py-fork/"
-        tp_path = home_path + "extra_data/translation_pieces_10-th0pt5.pickle"
+        tp_path = home_path + "extra_data/translation_pieces_md_10-th0pt5.pickle"
         translation_pieces = pickle.load(open(tp_path, 'rb'))
         tot_time = 0
         # END ----------------------------------------------------------------
@@ -294,7 +295,6 @@ class Translator(object):
         Todo:
            Shouldn't need the original dataset.
         """
-
         # (0) Prep each of the components of the search.
         # And helper method for reducing verbosity.
         beam_size = self.beam_size
@@ -303,32 +303,46 @@ class Translator(object):
         vocab = self.fields["tgt"].vocab
 
         # ADDED ----------------------------------------------------
-        # List that will have the necessary translation pieces
-        t_pieces = [translation_pieces[ix] for ix in batch.indices]
+        guided=True
+        if guided:
+            # List that will have the necessary translation pieces
+            #ixs_sorted = torch.sort(batch.indices)[0]
+            t_pieces = [translation_pieces[ix] for ix in batch.indices]
 
-        # "Translate" the list into dictionaries indexed by word index
-        tp_uni = list()
-        tp_multi = list()
-        out_uni = np.zeros((batch.batch_size, len(vocab)))
+            # "Translate" the list into dictionaries indexed by word index
+#            tp_uni = list()
+            tp_multi = list()
+            out_uni = np.zeros((batch.batch_size, len(vocab)))
 
-        for ix, list_ in enumerate(t_pieces):
-            aux_dict_uni = defaultdict(lambda: 0)
-            aux_dict_multi = defaultdict(lambda: 0)
-            for tuple_ in list_:
-                key = str(vocab.stoi[tuple_[0][0]])
-                if len(tuple_[0]) == 1:
-                    aux_dict_uni[key] = tuple_[1]
-                    out_uni[ix][int(key)] = tuple_[1]
-                else:
-                    for word in tuple_[0][1:]:
-                        key += " " + str(vocab.stoi[word])
-                    aux_dict_multi[key] = tuple_[1]
-            tp_uni.append(aux_dict_uni)
-            tp_multi.append(aux_dict_multi)
+            for ix, list_ in enumerate(t_pieces):
+#                aux_dict_uni = defaultdict(lambda: 0)
+                aux_dict_multi = defaultdict(lambda: 0)
+                for tuple_ in list_:
+                    key = str(vocab.stoi[tuple_[0][0]])
+                    if len(tuple_[0]) == 1:
+ #                       aux_dict_uni[key] = tuple_[1]
+                        out_uni[ix][int(key)] = tuple_[1]
+                    else:
+                        for word in tuple_[0][1:]:
+                            key += " " + str(vocab.stoi[word])
+                        aux_dict_multi[key] = tuple_[1]
+#                tp_uni.append(aux_dict_uni)
+                tp_multi.append(aux_dict_multi)
 
-        tp_uni_rep = np.repeat(tp_uni, beam_size)
-        tp_multi_rep = np.repeat(tp_multi, beam_size)
-        out_uni_rep = np.repeat(out_uni, beam_size, axis=0)
+            # To repeat we have to make [1,2,3,1,2,3,...] because
+            # in each beam we have batch_size translations, so we
+            # want to add all the translation pieces once in each
+            # beam. Therefore, we repeat them beam_size times and
+            # then we flatten that list to get something of dimen
+            # sion equal to beam_size * batch_size            
+            #tp_uni_ = [tp_uni for _ in range(self.beam_size)]
+            #tp_uni_rep = list(itertools.chain(*tp_uni_))
+            #tp_multi_ = [tp_multi for _ in range(self.beam_size)]
+            #tp_multi_rep = list(itertools.chain(*tp_multi_))
+            
+            out_uni_ = tuple([out_uni for _ in range(self.beam_size)])
+            out_uni_rep = np.vstack(out_uni_)            
+
         # END ------------------------------------------------------
 
         # Define a list of tokens to exclude from ngram-blocking
@@ -412,30 +426,40 @@ class Translator(object):
                 out = self.model.generator.forward(dec_out).data
 
                 # ADDED ----------------------------------------------------
-                # Deal with n-gram cases
-                #out_multi = np.zeros((batch.batch_size, len(vocab)))
-                total_size = batch.batch_size * self.beam_size
-                out_multi = np.zeros((total_size, len(vocab)))
+                if guided:
+                    # Deal with n-gram cases
+                    bs = batch.batch_size
+                    total_size = batch.batch_size * self.beam_size
+                    out_multi = np.zeros((total_size, len(vocab)))
+                    
+                    if i > 1:
+                        # len(beam) is batch_size
+                        for j in range(len(beam)):
+                            # Go through beam_size sequences
+                            for k, seq in enumerate(zip(*beam[j].next_ys)):
+                                for n in range(2, 5):
+                                    for s in range(0, len(seq)-n+1):
+                                        if s+n > len(seq):
+                                            break
+                                        # Get the context
+                                        list_seq = [str(x.item()) for x in seq[s:s+n]]
+                                        query = " ".join(list_seq)
+                                        if query not in tp_multi[j]:
+                                            continue
+                                        # If the context exists in the multi-dict
+                                        for key in tp_multi[j]:
+                                            key_ = key.split()
+                                            if len(key_) < len(list_seq): 
+                                                continue
+                                            if list_seq == key_[0:len(key_)]:
+                                                value = tp_multi[j][query]
+                                                for w in list_seq[len(key_):]:
+                                                    out_multi[k*bs+j][int(w)] += value
 
-                if i > 1:
-                    for j in range(len(beam)):
-                        for k, seq in enumerate(zip(*beam[j].next_ys)):
-                            for n in range(2, 5):
-                                for s in range(0, len(seq)-n+1):
-                                    list_seq = [str(x.item()) for x in seq[s:s+n]]
-                                    query = " ".join(list_seq)
-                                    if query not in tp_multi[j]:
-                                        continue
-                                    value = tp_multi[j][query]
-                                    for w in list_seq:
-                                        out_multi[j*10 + k][int(w)] += value
-                
-                #out_multi_rep = np.repeat(out_multi, beam_size, axis=0)
-
-                # Add the weights of the 1-grams
-                weight = 1.0
-                out = np.add(out, weight*out_uni_rep)
-                out = np.add(out, weight*out_multi)
+                    # Add the weights of the 1-grams
+                    weight = 1.0
+                    out = np.add(out, weight*out_uni_rep)
+                    out = np.add(out, weight*out_multi)
                 # END ------------------------------------------------------
 
                 out = unbottle(out)
