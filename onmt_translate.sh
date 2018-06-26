@@ -16,7 +16,6 @@ python3 translate.py \
 		-output ${DATA}/${SRC_FILE}.pred \
 		-beam_size 10 \
         -replace_unk \
-        -length_penalty wu\
         -log_file "extra_data/log"
 
 # Copy the predictions to the right folders
@@ -26,7 +25,7 @@ PRED_PATH=${HOME_PATH}/generate_results_de_en_domain/preds
 MT_PATH=${HOME_PATH}/generate_results_de_en_domain/mt_predictions
 
 #POS=guided_10-th0pt5-true
-POS=guided_10-th0pt5-lp-true
+POS=guided_10-th0pt5-rep-true
 cp ${DATA}/${SRC_FILE}.pred ${PRED_PATH}/${SRC_FILE}.pred.${POS}
 sed -r 's/(@@ )|(@@ ?$)//g' ${PRED_PATH}/${SRC_FILE}.pred.${POS} > \
 	                                     ${MT_PATH}/${SRC_FILE}.pred.${POS}.merged

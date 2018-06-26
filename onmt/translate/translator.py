@@ -310,23 +310,23 @@ class Translator(object):
             t_pieces = [translation_pieces[ix] for ix in batch.indices]
 
             # "Translate" the list into dictionaries indexed by word index
-#            tp_uni = list()
+            tp_uni = list()
             tp_multi = list()
             out_uni = np.zeros((batch.batch_size, len(vocab)))
 
             for ix, list_ in enumerate(t_pieces):
-#                aux_dict_uni = defaultdict(lambda: 0)
+                aux_dict_uni = defaultdict(lambda: 0)
                 aux_dict_multi = defaultdict(lambda: 0)
                 for tuple_ in list_:
                     key = str(vocab.stoi[tuple_[0][0]])
                     if len(tuple_[0]) == 1:
- #                       aux_dict_uni[key] = tuple_[1]
+                        aux_dict_uni[key] = tuple_[1]
                         out_uni[ix][int(key)] = tuple_[1]
                     else:
                         for word in tuple_[0][1:]:
                             key += " " + str(vocab.stoi[word])
                         aux_dict_multi[key] = tuple_[1]
-#                tp_uni.append(aux_dict_uni)
+                tp_uni.append(aux_dict_uni)
                 tp_multi.append(aux_dict_multi)
 
             # To repeat we have to make [1,2,3,1,2,3,...] because
@@ -343,6 +343,25 @@ class Translator(object):
             out_uni_ = tuple([out_uni for _ in range(self.beam_size)])
             out_uni_rep = np.vstack(out_uni_)            
 
+        def _ngrams(n_max, seq):
+            """
+            Args:
+                n_max:
+                seq:
+        
+            Outputs:
+                final:
+            """
+            final = list()
+            
+            for n in range(2, n_max):
+                for s in range(0, len(seq)-n+1):
+                    if s+n > len(seq):
+                        break
+                    list_seq = [str(x.item()) for x in seq[s:s+n]]
+                    final.append(list_seq)
+            
+            return final
         # END ------------------------------------------------------
 
         # Define a list of tokens to exclude from ngram-blocking
@@ -437,24 +456,35 @@ class Translator(object):
                         for j in range(len(beam)):
                             # Go through beam_size sequences
                             for k, seq in enumerate(zip(*beam[j].next_ys)):
-                                for n in range(2, 5):
+                                """for n in range(2, 5):
                                     for s in range(0, len(seq)-n+1):
                                         if s+n > len(seq):
                                             break
                                         # Get the context
-                                        list_seq = [str(x.item()) for x in seq[s:s+n]]
-                                        query = " ".join(list_seq)
-                                        if query not in tp_multi[j]:
+                                        list_seq = [str(x.item()) for x in seq[s:s+n]]"""
+                                # Correct the unigrams that already exist
+                                # to avoid repetitons. The current strategy
+                                # is subtracting the values. Later they will
+                                # be added, so the terms that were already
+                                # translated cancel, so they don't get any bonus
+                                for w in seq:
+                                    value = tp_uni[j][str(w.item())]
+                                    out_multi[k*bs+j][w.item()] -= value
+                                # Add the probabilities to the n-grams
+                                list_seq = _ngrams(5, seq)
+                                for seq_ in list_seq:
+                                    query = " ".join(seq_)
+                                    if query not in tp_multi[j]:
+                                        continue
+                                    # If the context exists in the multi-dict
+                                    for key in tp_multi[j]:
+                                        key_ = key.split()
+                                        if len(key_) < len(list_seq): 
                                             continue
-                                        # If the context exists in the multi-dict
-                                        for key in tp_multi[j]:
-                                            key_ = key.split()
-                                            if len(key_) < len(list_seq): 
-                                                continue
-                                            if list_seq == key_[0:len(key_)]:
-                                                value = tp_multi[j][query]
-                                                for w in list_seq[len(key_):]:
-                                                    out_multi[k*bs+j][int(w)] += value
+                                        if list_seq == key_[0:len(key_)]:
+                                            value = tp_multi[j][query]
+                                            for w in list_seq[len(key_):]:
+                                                out_multi[k*bs+j][int(w)] += value
 
                     # Add the weights of the 1-grams
                     weight = 1.0
