@@ -445,49 +445,91 @@ class Translator(object):
                 out = self.model.generator.forward(dec_out).data
 
                 # ADDED ----------------------------------------------------
+                strat = 2 # 1: all the next words, 2: next word
+                rib = 0 # Remove if beam
+                n_max = 2 # n-gram max
+                
                 if guided:
                     # Deal with n-gram cases
                     bs = batch.batch_size
                     total_size = batch.batch_size * self.beam_size
                     out_multi = np.zeros((total_size, len(vocab)))
                     
-                    if i > 1:
+                    """if i > 1:
                         # len(beam) is batch_size
                         for j in range(len(beam)):
                             # Go through beam_size sequences
                             for k, seq in enumerate(zip(*beam[j].next_ys)):
-                                """for n in range(2, 5):
-                                    for s in range(0, len(seq)-n+1):
-                                        if s+n > len(seq):
-                                            break
-                                        # Get the context
-                                        list_seq = [str(x.item()) for x in seq[s:s+n]]"""
+                                
                                 # Correct the unigrams that already exist
                                 # to avoid repetitons. The current strategy
                                 # is subtracting the values. Later they will
                                 # be added, so the terms that were already
                                 # translated cancel, so they don't get any bonus
-                                for w in seq:
-                                    value = tp_uni[j][str(w.item())]
-                                    out_multi[k*bs+j][w.item()] -= value
+                                
+                                #for w in seq:
+                                #    value = tp_uni[j][str(w.item())]
+                                #    out_multi[k*bs+j][w.item()] -= value
+                                # Verify that no value is negative
+                                #try:
+                                #    assert ((out_uni_rep[k*bs+j]+out_multi[k*bs+j] >= 0) == True).all()
+                                #except:
+                                #    pdb.set_trace()
+
                                 # Add the probabilities to the n-grams
-                                list_seq = _ngrams(5, seq)
+                                list_seq = _ngrams(n_max+1, seq)
                                 for seq_ in list_seq:
                                     query = " ".join(seq_)
                                     if query not in tp_multi[j]:
                                         continue
                                     # If the context exists in the multi-dict
-                                    for key in tp_multi[j]:
+                                    for key, value in tp_multi[j].items():
                                         key_ = key.split()
-                                        if len(key_) < len(list_seq): 
+                                        if len(key_) <= len(seq_): 
                                             continue
-                                        if list_seq == key_[0:len(key_)]:
-                                            value = tp_multi[j][query]
-                                            for w in list_seq[len(key_):]:
-                                                out_multi[k*bs+j][int(w)] += value
+                                        if seq_ == key_[0:len(seq_)]:
+                                            # This value below is the context value
+                                            if strat==2:
+                                                w = int(key_[len(seq_)])
+                                                if rib:
+                                                    if w not in seq:
+                                                        out_multi[k*bs+j][w] += value
+                                                else:
+                                                    out_multi[k*bs+j][w] += value
 
+                                            elif strat==1:
+                                                for w in key_[len(seq_):]:
+                                                    if rib:
+                                                        if int(w) not in seq:
+                                                            out_multi[k*bs+j][int(w)] += value
+                                                    else:
+                                                        out_multi[k*bs+j][int(w)] += value"""
+                    
+                    if i > 0:
+                        for j in range(len(beam)): 
+                            if not len(tp_multi[j]): 
+                                continue
+                            for k, seq in enumerate(zip(*beam[j].next_ys)):
+                                seq_ = [str(x.item()) for x in seq]
+                                for l in range(1,n_max):
+                                    if i - l < 1: 
+                                        break
+                                    if l == 1: 
+                                        if " ".join(seq_[-l:]) not in tp_uni[j]: 
+                                            break
+                                    elif " ".join(seq_[-l:]) not in tp_multi[j]: 
+                                        break
+                                    for key, value in tp_multi[j].items():
+                                        key_ = key.split()
+                                        if len(key_)!=l+1: 
+                                            continue
+                                        if key_[-l-1:-1] == seq_[-l:]:
+                                            w = int(key[-1])
+                                            if w not in seq:
+                                                out_multi[k*bs+j][w] += value
+                                    
                     # Add the weights of the 1-grams
-                    weight = 1.0
+                    weight = 1.0 
                     out = np.add(out, weight*out_uni_rep)
                     out = np.add(out, weight*out_multi)
                 # END ------------------------------------------------------
