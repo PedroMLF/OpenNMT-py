@@ -447,7 +447,7 @@ class Translator(object):
                 # ADDED ----------------------------------------------------
                 strat = 2 # 1: all the next words, 2: next word
                 rib = 0 # Remove if beam
-                n_max = 2 # n-gram max
+                n_max = 4 # n-gram max
                 
                 if guided:
                     # Deal with n-gram cases
@@ -506,7 +506,7 @@ class Translator(object):
                                                         out_multi[k*bs+j][int(w)] += value"""
                     
                     if i > 0:
-                        for j in range(len(beam)): 
+                        """for j in range(len(beam)): 
                             if not len(tp_multi[j]): 
                                 continue
                             for k, seq in enumerate(zip(*beam[j].next_ys)):
@@ -524,10 +524,24 @@ class Translator(object):
                                         if len(key_)!=l+1: 
                                             continue
                                         if key_[-l-1:-1] == seq_[-l:]:
-                                            w = int(key[-1])
-                                            if w not in seq:
-                                                out_multi[k*bs+j][w] += value
-                                    
+                                            w = int(key_[-1])
+                                            if key_[-1] not in seq_:
+                                                out_multi[k*bs+j][w] += value"""
+
+                        for j in range(len(beam)):
+                            if not len(tp_uni[j]):
+                                continue
+                            for k, seq in enumerate(zip(*beam[j].next_ys)):
+                                seq_ = [str(x.item()) for x in seq]
+                                for w in set(seq_):
+                                    value = tp_uni[j][w]
+                                    out_multi[k*bs+j][int(w)] -= value
+                                try:
+                                    assert ((out_uni_rep[k*bs+j]+out_multi[k*bs+j] >= 0) == True).all()
+                                except:
+                                    pdb.set_trace()
+
+    
                     # Add the weights of the 1-grams
                     weight = 1.0 
                     out = np.add(out, weight*out_uni_rep)
